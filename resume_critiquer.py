@@ -11,6 +11,7 @@ Setup:
 
 import io
 import os
+import time
 
 import PyPDF2
 import streamlit as st
@@ -21,6 +22,7 @@ load_dotenv()
 
 # Agar model ka naam kaam na kare to yahan naya naam likh dein
 MODEL_NAME = "gemini-3.8-flash"
+FALLBACK_MODEL = "gemini-flash-latest"  # busy hone par ye try hoga
 
 st.set_page_config(page_title="AI Resume Critiquer", page_icon="📃", layout="centered")
 st.title("AI Resume Critiquer")
@@ -73,8 +75,21 @@ Resume:
 """
 
         client = genai.Client(api_key=api_key)
-        with st.spinner("Analyzing..."):
-            response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
+        response = None
+        last_error = None
+        with st.spinner("Analyzing... (busy ho to thora wait hoga)"):
+            for model in [MODEL_NAME, MODEL_NAME, FALLBACK_MODEL, FALLBACK_MODEL]:
+                try:
+                    response = client.models.generate_content(model=model, contents=prompt)
+                    break
+                except Exception as err:
+                    last_error = err
+                    time.sleep(3)
+
+        if response is None:
+            st.warning("Google ke servers abhi busy hain. 1-2 minute baad dobara try karein.")
+            st.caption(f"Detail: {last_error}")
+            st.stop()
 
         st.markdown("### Analysis Results")
         st.markdown(response.text)
